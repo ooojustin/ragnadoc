@@ -1,0 +1,22 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "ragadoc"
+version = "0.1.0"
+description = ""
+authors = [
+    { name = "Justin Garofolo", email = "justin@garofolo.net" }
+]
+dependencies = [
+    "click",
+    "PyYAML"
+]
+dynamic = ["classifiers"]
+
+[project.scripts]
+ragadoc = "ragadoc.main:cli"
+
+[tool.hatch.metadata]
+include = ["ragadoc/**/*"]
