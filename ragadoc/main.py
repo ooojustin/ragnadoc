@@ -1,6 +1,7 @@
 import click
 import yaml
 from rich.console import Console
+from ragadoc.gh import GitHubClient
 
 console = Console()
 
@@ -18,7 +19,10 @@ def cli():
 def index(config: str):
     try:
         cfg = load_config(config)
-        console.print(cfg)
+        github_client = GitHubClient(cfg["github_token"])
+        docs = github_client.fetch_docs(cfg["repos"])
+        console.print(
+            f"[blue]⋲[/blue] Documents: {len(docs)}")
         console.print(
             "[bold green]✓[/bold green] Indexing completed successfully")
     except Exception as e:
