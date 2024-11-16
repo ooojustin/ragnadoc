@@ -1,30 +1,34 @@
-from rich.console import Console
 from typing import Optional
+from datetime import datetime
+from rich.console import Console
+from rich.logging import RichHandler
 from ragnadoc.gh import GitHubClient
 from ragnadoc.docs import DocumentProcessor
 from ragnadoc.vectors import VectorStore
 from ragnadoc.query import QueryEngine
+from ragnadoc.logging import initialize_logging
 import logging
 import click
 import yaml
 
 console = Console()
 
+
 def load_config(config_path: str) -> dict:
     """Load configuration from YAML file."""
     with open(config_path, 'r') as f:
         return yaml.safe_load(f)
 
+
 @click.group()
 def cli():
-    logging.basicConfig(
-        level=logging.INFO,
-        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-    )
+    initialize_logging()
+
 
 @cli.command()
 @click.option('--config', required=True, help='Path to configuration file')
 def index(config: str):
+
     try:
         cfg = load_config(config)
         logger = logging.getLogger(__name__)
@@ -58,6 +62,7 @@ def index(config: str):
     except Exception as e:
         console.print(f"[bold red]Error:[/bold red] {str(e)}")
         raise click.Abort()
+
 
 @cli.command()
 @click.option('--config', required=True, help='Path to configuration file')
@@ -113,6 +118,7 @@ def query(config: str, repo: Optional[str]):
     except Exception as e:
         console.print(f"[bold red]Error:[/bold red] {str(e)}")
         raise click.Abort()
+
 
 if __name__ == "__main__":
     cli()

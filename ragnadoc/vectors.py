@@ -8,7 +8,8 @@ from ragnadoc.docs import DocEmbedding
 import numpy as np
 import logging
 
-ADA_002_DIM = 1536 # ada-002 dimensions
+ADA_002_DIM = 1536  # ada-002 dimensions
+
 
 class VectorStore:
 
@@ -25,7 +26,7 @@ class VectorStore:
 
         # initialize OpenAI embeddings
         self.embeddings = OpenAIEmbeddings(
-            openai_api_key=openai_api_key,
+            openai_api_key=openai_api_key,  # type: ignore
             model="text-embedding-ada-002"
         )
 
@@ -82,7 +83,7 @@ class VectorStore:
         except Exception as e:
             self.logger.error(f"Error updating vectors: {str(e)}")
             raise
-    
+
     def query(
         self,
         query: str,
