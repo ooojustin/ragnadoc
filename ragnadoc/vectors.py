@@ -1,16 +1,16 @@
 from pinecone.grpc import PineconeGRPC as Pinecone
 from pinecone import ServerlessSpec
-from pinecone.core.openapi.data.models import QueryResponse, FetchResponse
+from pinecone.core.openapi.data.models import QueryResponse
 from langchain.embeddings.openai import OpenAIEmbeddings
 from langchain.schema import Document
-from typing import List, Optional
-from ragadoc.docs import DocEmbedding
+from typing import List, Dict, Optional
+from ragnadoc.docs import DocEmbedding
+import numpy as np
 import logging
 
 ADA_002_DIM = 1536 # ada-002 dimensions
 
 class VectorStore:
-    """Modern Pinecone-based vector store implementation."""
 
     def __init__(
         self,
@@ -81,4 +81,45 @@ class VectorStore:
 
         except Exception as e:
             self.logger.error(f"Error updating vectors: {str(e)}")
+            raise
+    
+    def query(
+        self,
+        query: str,
+        filter_dict: Optional[Dict] = None,
+        top_k: int = 4
+    ) -> List[DocEmbedding]:
+        try:
+            # generate query embedding
+            query_embedding = self.embeddings.embed_query(query)
+
+            # query pinecone
+            response = self.index.query(
+                vector=query_embedding,
+                top_k=top_k,
+                filter=filter_dict,
+                include_values=True,
+                include_metadata=True
+            )
+
+            assert isinstance(response, QueryResponse)
+            matches = response.matches
+
+            # convert to DocEmbedding objects
+            results = [
+                DocEmbedding(
+                    id=match.id,
+                    vector=np.array(match.values),
+                    text=match.metadata["text"],
+                    metadata={
+                        k: v for k, v in match.metadata.items()
+                        if k != "text"
+                    },
+                    distance=match.score
+                )
+                for match in matches
+            ]
+            return results
+        except Exception as e:
+            self.logger.error(f"Error querying vector store: {str(e)}")
             raise

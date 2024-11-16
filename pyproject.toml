@@ -3,7 +3,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "ragadoc"
+name = "ragnadoc"
 version = "0.1.0"
 description = ""
 authors = [
@@ -16,7 +16,7 @@ dependencies = [
 dynamic = ["classifiers"]
 
 [project.scripts]
-ragadoc = "ragadoc.main:cli"
+ragnadoc = "ragnadoc.main:cli"
 
 [tool.hatch.metadata]
-include = ["ragadoc/**/*"]
+include = ["ragnadoc/**/*"]

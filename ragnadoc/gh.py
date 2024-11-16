@@ -1,7 +1,7 @@
 from github import Github
 from typing import List
 from urllib.parse import urlparse
-from ragadoc.docs import DocInfo
+from ragnadoc.docs import DocInfo
 
 class GitHubClient:
 

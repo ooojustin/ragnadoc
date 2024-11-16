@@ -1,7 +1,7 @@
 from typing import List
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.schema import Document
-from ragadoc.docs import DocInfo
+from ragnadoc.docs import DocInfo
 import logging
 
 class DocumentProcessor:
