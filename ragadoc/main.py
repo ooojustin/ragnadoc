@@ -2,6 +2,7 @@ import click
 import yaml
 from rich.console import Console
 from ragadoc.gh import GitHubClient
+from ragadoc.docs import DocumentProcessor
 
 console = Console()
 
@@ -19,10 +20,19 @@ def cli():
 def index(config: str):
     try:
         cfg = load_config(config)
+
         github_client = GitHubClient(cfg["github_token"])
+        dp = DocumentProcessor()
+
+        # fetch documents from github
         docs = github_client.fetch_docs(cfg["repos"])
         console.print(
             f"[blue]⋲[/blue] Documents: {len(docs)}")
+
+        for doc in docs:
+            # extract chunks
+            _ = dp.process(doc)
+
         console.print(
             "[bold green]✓[/bold green] Indexing completed successfully")
     except Exception as e:
