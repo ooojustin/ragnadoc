@@ -1,7 +1,9 @@
 from github import Github
-from typing import List
+from typing import List, Optional
 from urllib.parse import urlparse
 from ragnadoc.docs import DocInfo
+from rich.progress import Progress, TextColumn, BarColumn, TimeRemainingColumn
+
 
 class GitHubClient:
 
@@ -26,38 +28,100 @@ class GitHubClient:
 
         return owner, repo, branch, base_dir
 
-    def fetch_docs(self, repo_urls: List[str]) -> List[DocInfo]:
+    def fetch_docs(self, repo_urls: List[str], show_progress: Optional[bool] = True) -> List[DocInfo]:
         docs = []
-        for url in repo_urls:
-            print("url", url)
-            owner, repo_name, branch, base_dir = self._parse_github_url(url)
-            repo = self.github.get_repo(f"{owner}/{repo_name}")
 
-            try:
-                contents = repo.get_contents(base_dir, ref=branch)
-                if not isinstance(contents, list):
-                    contents = [contents]
+        progress = None
+        fetch_task = None
 
-                while contents:
-                    file_content = contents.pop(0)
-                    if file_content.type == "dir":
-                        path_contents = repo.get_contents(
-                            file_content.path, ref=branch)
-                        if not isinstance(path_contents, list):
-                            path_contents = [path_contents]
-                        contents.extend(path_contents)
-                        print(f"extend contents ({len(contents)})")
-                    elif file_content.path.endswith(('.md', '.mdx')):
-                        docs.append(DocInfo(
-                            path=file_content.path,
-                            content=file_content.decoded_content.decode(),
-                            sha=file_content.sha,
-                            repo_name=f"{owner}/{repo_name}"
-                        ))
-                        print(
-                            f"append to docs: {file_content.path} ({len(docs)})")
-            except Exception as e:
-                print(f"Error processing {url}: {str(e)}")
-                raise
+        if show_progress:
+            progress = Progress(
+                TextColumn("[progress.description]{task.description}"),
+                BarColumn(),
+                TextColumn("[progress.percentage]{task.percentage:>3.0f}%"),
+                TimeRemainingColumn(),
+            )
+            progress.start()
+            fetch_task = progress.add_task(
+                "Fetching documents...", total=None)
+
+        try:
+            for url in repo_urls:
+                owner, repo_name, branch, base_dir = self._parse_github_url(
+                    url)
+
+                if progress and fetch_task is not None:
+                    progress.update(
+                        fetch_task, description=f"Fetching: {owner}/{repo_name}")
+
+                # if progress:
+                #     progress.console.log(
+                #         f"Processing repository: [blue]{url}[/blue]")
+
+                owner, repo_name, branch, base_dir = self._parse_github_url(
+                    url)
+                repo_path = f"{owner}/{repo_name}"
+                repo = self.github.get_repo(repo_path)
+
+                try:
+                    contents = repo.get_contents(base_dir, ref=branch)
+                    assert isinstance(contents, list)
+
+                    repo_task = None
+                    if progress:
+                        repo_task = progress.add_task(
+                            f"Fetching files from {repo_name}", total=len(contents))
+
+                    while contents:
+                        file_content = contents.pop(0)
+                        if progress and repo_task is not None:
+                            progress.update(
+                                repo_task, advance=1, description=f"Processing {file_content.path}")
+
+                        if file_content.type == "dir":
+                            dir_contents = repo.get_contents(
+                                file_content.path, ref=branch)
+                            if not isinstance(dir_contents, list):
+                                dir_contents = [dir_contents]
+                            contents.extend(dir_contents)
+                            if progress and repo_task is not None:
+                                progress.update(repo_task, total=len(
+                                    contents) + progress.tasks[repo_task].completed)
+                        elif file_content.path.endswith((".md", ".mdx")):
+                            # TODO: support more file types
+                            docs.append(DocInfo(
+                                path=file_content.path,
+                                content=file_content.decoded_content.decode(),
+                                sha=file_content.sha,
+                                repo_name=repo_path
+                            ))
+                            if progress:
+                                progress.console.log(
+                                    f"[green]Added:[/green] {repo_path}/{file_content.path}")
+
+                    if progress and repo_task is not None:
+                        progress.update(
+                            repo_task, advance=1, description=f"Processed repository: [blue]{repo_path}[/blue]")
+
+                    if progress and fetch_task is not None:
+                        progress.update(fetch_task, advance=1)
+                except Exception as e:
+                    if progress:
+                        progress.console.log(
+                            f"[red]Error processing {url}: {e}[/red]")
+                    raise
+
+            # mark fetch task as complete at the end
+            if progress and fetch_task is not None:
+                progress.remove_task(fetch_task)
+                # progress.update(
+                #     fetch_task, description="All repositories processed")
+                # fetch_task, description="All repositories processed", completed=len(repo_urls))
+
+        finally:
+            if progress:
+                progress.console.log(
+                    f"[blue]Done:[/blue] Repository indexing successful.")
+                progress.stop()
 
         return docs
