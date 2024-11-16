@@ -11,7 +11,13 @@ authors = [
 ]
 dependencies = [
     "click",
-    "PyYAML"
+    "pyyaml",
+    "rich",
+    "pygithub",
+    "langchain",
+    "langchain-community",
+    "pinecone",
+    "tiktoken"
 ]
 dynamic = ["classifiers"]
 

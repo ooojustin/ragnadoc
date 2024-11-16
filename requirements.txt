@@ -1,0 +1,8 @@
+click
+pyyaml
+rich
+pygithub
+langchain
+langchain-community
+pinecone
+tiktoken
