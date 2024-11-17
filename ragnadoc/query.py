@@ -2,6 +2,8 @@ from dataclasses import dataclass
 from typing import List, Dict, Optional, Any
 import logging
 from openai import OpenAI
+from openai.types.beta import Thread, Assistant
+from openai.types.beta.threads import TextContentBlock
 from ragnadoc.docs import DocEmbedding
 from ragnadoc.vectors import VectorStore
 
@@ -58,29 +60,20 @@ class QueryEngine:
         self.query_prompt = query_prompt or self.DEFAULT_QUERY_PROMPT
         self.logger = logging.getLogger(__name__)
 
+        # create the chat assistant/thread
+        self.assistant = self._create_assistant()
+        self.thread = self._create_thread()
+
     def _format_context(self, docs: List[DocEmbedding]) -> str:
         context_parts = []
         for doc in docs:
             source = f"{doc.metadata['repo']}/{doc.metadata['source']}"
-            # include relevance score if, available
             score_info = f" (relevance: {doc.distance:.2f})" if doc.distance is not None else ""
             context_parts.append(
                 f"Source: {source}{score_info}\n"
                 f"Content: {doc.text}\n"
             )
         return "\n---\n".join(context_parts)
-
-    def _create_messages(self, question: str, context: str) -> List[Dict[str, str]]:
-        return [
-            {"role": "system", "content": self.system_prompt},
-            {
-                "role": "user",
-                "content": self.query_prompt.format(
-                    context=context,
-                    question=question
-                )
-            }
-        ]
 
     def query(
         self,
@@ -89,7 +82,9 @@ class QueryEngine:
         top_k: int = 4,
         min_relevance_score: float = 0.5
     ) -> QueryResult:
-        ""
+        """
+        Query the documentation using a persistent thread and assistant.
+        """
         try:
             # retrieve relevant documents
             docs = self.vector_store.query(
@@ -106,29 +101,51 @@ class QueryEngine:
                 ]
 
             if not docs:
+                message_str = "I couldn't find any relevant documentation to answer your question."
+                message = self.client.beta.threads.messages.create(
+                    thread_id=self.thread.id,
+                    role="user",
+                    content=message_str
+                )
                 return QueryResult(
-                    answer="I couldn't find any relevant documentation to answer your question.",
+                    answer=message_str,
                     sources=[],
-                    raw_response=None
+                    raw_response=message
                 )
 
-            # format context from documents
             context = self._format_context(docs)
-
-            # create messages for chat completion
-            messages = self._create_messages(question, context)
-
-            # generate response
-            response = self.client.chat.completions.create(
-                model=self.model,
-                messages=messages,  # type: ignore
-                temperature=self.temperature,
-                max_tokens=self.max_tokens
+            formatted_query = self.query_prompt.format(
+                context=context,
+                question=question
             )
+
+            self.client.beta.threads.messages.create(
+                thread_id=self.thread.id,
+                role="user",
+                content=formatted_query
+            )
+            self.client.beta.threads.runs.create_and_poll(
+                thread_id=self.thread.id,
+                assistant_id=self.assistant.id,
+            )
+
+            messages = self.client.beta.threads.messages.list(
+                thread_id=self.thread.id,
+                order="desc",
+                limit=1
+            )
+
+            response = messages.data[0]
+            content = response.content[0]
+            if isinstance(content, TextContentBlock):
+                answer = content.text.value
+            else:
+                answer = "Unable to interpret response as text."
 
             # extract sources from used documents
             sources = [
                 {
+                    "id": doc.id,
                     "repo": doc.metadata["repo"],
                     "path": doc.metadata["source"],
                     "relevance": doc.distance,
@@ -139,7 +156,7 @@ class QueryEngine:
             ]
 
             return QueryResult(
-                answer=response.choices[0].message.content or "",
+                answer=answer,
                 sources=sources,
                 raw_response=response
             )
@@ -147,3 +164,26 @@ class QueryEngine:
         except Exception as e:
             self.logger.error(f"Error generating answer: {str(e)}")
             raise
+
+    def _create_assistant(self) -> Assistant:
+        return self.client.beta.assistants.create(
+            name="Documentation Assistant",
+            instructions=self.system_prompt,
+            model=self.model,
+            tools=[]
+        )
+
+    def _create_thread(self) -> Thread:
+        self.logger.debug("Created new conversation thread")
+        return self.client.beta.threads.create()
+
+    def reset_conversation(self):
+        self.logger.debug("Resetting QueryEngine conversation")
+        self.thread = self._create_thread()
+
+    def __del__(self):
+        try:
+            if hasattr(self, "assistant") and self.assistant:
+                self.client.beta.assistants.delete(self.assistant.id)
+        except Exception as e:
+            self.logger.error(f"Error cleaning up assistant: {str(e)}")

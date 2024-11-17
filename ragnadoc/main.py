@@ -109,7 +109,7 @@ def query(config: str, repo: Optional[str]):
             console.print("\n[bold]Sources:[/bold]")
             for source in result.sources:
                 console.print(
-                    f"- {source['repo']}/{source['path']} "
+                    f"- {source["id"]} "
                     f"(relevance: {source.get('relevance', 'N/A')})"
                 )
 
