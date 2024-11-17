@@ -3,6 +3,7 @@ from datetime import datetime
 from typing import Optional
 import numpy as np
 
+
 @dataclass
 class DocInfo:
     path: str
@@ -11,6 +12,7 @@ class DocInfo:
     repo_name: str
     last_modified: Optional[datetime] = None
     author: Optional[str] = None
+
 
 @dataclass
 class DocEmbedding:

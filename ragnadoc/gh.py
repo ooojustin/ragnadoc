@@ -121,7 +121,7 @@ class GitHubClient:
         finally:
             if progress:
                 progress.console.log(
-                    f"[blue]Done:[/blue] Repository indexing successful.")
+                    f"[blue]Done:[/blue] Repository indexing completed.")
                 progress.stop()
 
         return docs

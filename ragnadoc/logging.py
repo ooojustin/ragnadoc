@@ -1,12 +1,7 @@
 from datetime import datetime
-import logging
-
-from rich.logging import RichHandler
-
 from rich.logging import RichHandler
 from rich.text import Text
 import logging
-from datetime import datetime
 
 
 class CustomRichHandler(RichHandler):

@@ -1,7 +1,5 @@
 from typing import Optional
-from datetime import datetime
 from rich.console import Console
-from rich.logging import RichHandler
 from ragnadoc.gh import GitHubClient
 from ragnadoc.docs import DocumentProcessor
 from ragnadoc.vectors import VectorStore
@@ -26,7 +24,7 @@ def cli():
 
 
 @cli.command()
-@click.option('--config', required=True, help='Path to configuration file')
+@click.option("--config", required=True, help="Path to configuration file")
 def index(config: str):
 
     try:
@@ -65,8 +63,8 @@ def index(config: str):
 
 
 @cli.command()
-@click.option('--config', required=True, help='Path to configuration file')
-@click.option('--repo', help='Filter by repository')
+@click.option("--config", required=True, help="Path to configuration file")
+@click.option("--repo", help="Filter by repository")
 def query(config: str, repo: Optional[str]):
 
     # TODO: add cli args for these

@@ -121,7 +121,7 @@ class QueryEngine:
             # generate response
             response = self.client.chat.completions.create(
                 model=self.model,
-                messages=messages,
+                messages=messages,  # type: ignore
                 temperature=self.temperature,
                 max_tokens=self.max_tokens
             )
@@ -139,7 +139,7 @@ class QueryEngine:
             ]
 
             return QueryResult(
-                answer=response.choices[0].message.content,
+                answer=response.choices[0].message.content or "",
                 sources=sources,
                 raw_response=response
             )

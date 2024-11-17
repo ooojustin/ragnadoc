@@ -4,6 +4,7 @@ from langchain.schema import Document
 from ragnadoc.docs import DocInfo
 import logging
 
+
 class DocumentProcessor:
 
     def __init__(
@@ -51,7 +52,8 @@ class DocumentProcessor:
             )
 
             if not chunks:
-                self.logger.warning(f"No chunks created for document: {doc.path}")
+                self.logger.warning(
+                    f"No chunks created for document: {doc.path}")
                 return []
 
             # add chunk information to metadata
@@ -70,4 +72,7 @@ class DocumentProcessor:
             return chunks
 
         except Exception as e:
-            self.logger.error(f"Error processing document {doc.path}: {str(e)}")
+            self.logger.error(
+                f"Error processing document {doc.path}: {str(e)}")
+
+        return []
