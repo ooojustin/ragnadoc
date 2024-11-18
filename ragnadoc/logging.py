@@ -5,6 +5,7 @@ import logging
 
 
 class CustomRichHandler(RichHandler):
+
     LEVEL_STYLES = {
         "debug": "dim cyan",
         "info": "blue",
@@ -14,7 +15,6 @@ class CustomRichHandler(RichHandler):
     }
 
     def render_message(self, record, message):
-        """Render the log message with colored time."""
         log_time = datetime.fromtimestamp(
             record.created).strftime("%H:%M:%S")
 
@@ -36,6 +36,9 @@ class CustomRichHandler(RichHandler):
 
 
 def initialize_logging():
+    # automatically use rich lib for tracebacks
+    from rich.traceback import install as traceback_install
+    traceback_install()
 
     # configure the customized RichHandler
     rich_handler = CustomRichHandler(

@@ -1,16 +1,16 @@
 from github import Github
 from typing import List, Optional
 from urllib.parse import urlparse
-from ragnadoc.docs import DocInfo
+from ragnadoc.content import GitContent
 from rich.progress import Progress, TextColumn, BarColumn, TimeRemainingColumn
 
 
 class GitHubClient:
-
     def __init__(self, github_token: str):
         self.github = Github(github_token)
 
     def _parse_github_url(self, url: str) -> tuple[str, str, str, str]:
+        """Parse GitHub URL into owner, repo, branch, and base directory."""
         url = url.rstrip("/")
 
         # parse URL parts
@@ -28,7 +28,8 @@ class GitHubClient:
 
         return owner, repo, branch, base_dir
 
-    def fetch_docs(self, repo_urls: List[str], show_progress: Optional[bool] = True) -> List[DocInfo]:
+    def fetch_docs(self, repo_urls: List[str], show_progress: Optional[bool] = True) -> List[GitContent]:
+        """Fetch documentation files from GitHub repositories."""
         docs = []
 
         progress = None
@@ -49,18 +50,12 @@ class GitHubClient:
             for url in repo_urls:
                 owner, repo_name, branch, base_dir = self._parse_github_url(
                     url)
+                repo_path = f"{owner}/{repo_name}"
 
                 if progress and fetch_task is not None:
                     progress.update(
-                        fetch_task, description=f"Fetching: {owner}/{repo_name}")
+                        fetch_task, description=f"Fetching: {repo_path}")
 
-                # if progress:
-                #     progress.console.log(
-                #         f"Processing repository: [blue]{url}[/blue]")
-
-                owner, repo_name, branch, base_dir = self._parse_github_url(
-                    url)
-                repo_path = f"{owner}/{repo_name}"
                 repo = self.github.get_repo(repo_path)
 
                 try:
@@ -70,13 +65,18 @@ class GitHubClient:
                     repo_task = None
                     if progress:
                         repo_task = progress.add_task(
-                            f"Fetching files from {repo_name}", total=len(contents))
+                            f"Fetching files from {repo_name}",
+                            total=len(contents)
+                        )
 
                     while contents:
                         file_content = contents.pop(0)
                         if progress and repo_task is not None:
                             progress.update(
-                                repo_task, advance=1, description=f"Processing {file_content.path}")
+                                repo_task,
+                                advance=1,
+                                description=f"Processing {file_content.path}"
+                            )
 
                         if file_content.type == "dir":
                             dir_contents = repo.get_contents(
@@ -85,38 +85,56 @@ class GitHubClient:
                                 dir_contents = [dir_contents]
                             contents.extend(dir_contents)
                             if progress and repo_task is not None:
-                                progress.update(repo_task, total=len(
-                                    contents) + progress.tasks[repo_task].completed)
+                                progress.update(
+                                    repo_task,
+                                    total=len(contents) +
+                                    progress.tasks[repo_task].completed
+                                )
                         elif file_content.path.endswith((".md", ".mdx")):
-                            # TODO: support more file types
-                            docs.append(DocInfo(
+                            # Create GitDocument directly
+                            commit = repo.get_commits(
                                 path=file_content.path,
-                                content=file_content.decoded_content.decode(),
+                                sha=branch
+                            )[0]
+
+                            doc = GitContent.create(
+                                text=file_content.decoded_content.decode(),
+                                source=file_content.path,
+                                repo=repo_path,
                                 sha=file_content.sha,
-                                repo_name=repo_path
-                            ))
+                                last_modified=commit.commit.author.date,
+                                author=commit.commit.author.name,
+                                additional_metadata={
+                                    "document_type": "markdown" if file_content.path.endswith(".md") else "mdx",
+                                    "branch": branch,
+                                    "commit_message": commit.commit.message
+                                }
+                            )
+                            docs.append(doc)
+
                             if progress:
                                 progress.console.log(
-                                    f"[green]Added:[/green] {repo_path}/{file_content.path}")
+                                    f"[green]Added:[/green] {repo_path}/{file_content.path}"
+                                )
 
                     if progress and repo_task is not None:
                         progress.update(
-                            repo_task, advance=1, description=f"Processed repository: [blue]{repo_path}[/blue]")
+                            repo_task,
+                            advance=1,
+                            description=f"Processed repository: [blue]{repo_path}[/blue]"
+                        )
 
                     if progress and fetch_task is not None:
                         progress.update(fetch_task, advance=1)
+
                 except Exception as e:
                     if progress:
                         progress.console.log(
                             f"[red]Error processing {url}: {e}[/red]")
                     raise
 
-            # mark fetch task as complete at the end
             if progress and fetch_task is not None:
                 progress.remove_task(fetch_task)
-                # progress.update(
-                #     fetch_task, description="All repositories processed")
-                # fetch_task, description="All repositories processed", completed=len(repo_urls))
 
         finally:
             if progress:
