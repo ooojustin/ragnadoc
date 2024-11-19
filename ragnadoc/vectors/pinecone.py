@@ -41,64 +41,77 @@ class PineconeVectorStore(VectorStore[T]):
 
         self.index = self.pc.Index(self.index_name)
 
-    def update(self, docs: List[T], batch_size: int = 100) -> None:
+    def update(self, docs: List[T], batch_size: int = 100, show_progress: Optional[bool] = True) -> None:
         if not docs:
             self.logger.warning("No documents provided for update")
             return
 
-        try:
-            with Progress(
+        progress = None
+        if show_progress:
+            progress = Progress(
                 SpinnerColumn(),
                 TextColumn("[progress.description]{task.description}"),
                 BarColumn(),
-                TextColumn("[progress.percentage]{task.percentage:>3.0f}%"),
+                TextColumn(
+                    "[progress.percentage]{task.percentage:>3.0f}%"),
                 TimeRemainingColumn(),
-            ) as progress:
-                embedding_inputs = [
-                    EmbeddingInput(
-                        text=doc.text,
-                        metadata=doc.to_metadata_dict()
-                    )
-                    for doc in docs
-                ]
+            )
+            progress.start()
 
+        try:
+
+            embedding_inputs = [
+                EmbeddingInput(
+                    text=doc.text,
+                    metadata=doc.to_metadata_dict()
+                )
+                for doc in docs
+            ]
+
+            embedding_task = None
+            if progress:
                 embedding_task = progress.add_task(
                     "Generating embeddings...",
                     total=len(docs)
                 )
 
-                embeddings = self.embedding_provider.embed_batch(
-                    embedding_inputs,
-                    batch_size=batch_size
-                )
+            embeddings = self.embedding_provider.embed_batch(
+                embedding_inputs,
+                batch_size=batch_size
+            )
 
+            if progress and embedding_task is not None:
                 progress.update(embedding_task, completed=len(docs))
 
-                vectors = [
-                    (doc.id or f"doc_{i}",
-                     emb.embedding.tolist(),
-                     doc.get_sanitized_metadata())
-                    for i, (doc, emb) in enumerate(zip(docs, embeddings))
-                ]
+            vectors = [
+                (doc.id or f"doc_{i}",
+                 emb.embedding.tolist(),
+                 doc.get_sanitized_metadata())
+                for i, (doc, emb) in enumerate(zip(docs, embeddings))
+            ]
 
-                total_batches = (len(vectors) + batch_size - 1) // batch_size
+            total_batches = (len(vectors) + batch_size - 1) // batch_size
+            upsert_task = None
+            if progress:
                 upsert_task = progress.add_task(
                     "Upserting vectors...",
                     total=total_batches
                 )
 
-                for i in range(0, len(vectors), batch_size):
-                    batch = vectors[i:i + batch_size]
-                    batch_num = i // batch_size + 1
+            for i in range(0, len(vectors), batch_size):
+                batch = vectors[i:i + batch_size]
+                batch_num = i // batch_size + 1
 
+                if progress and upsert_task is not None:
                     progress.update(
                         upsert_task,
                         advance=1,
                         description=f"Upserting batch {batch_num}/{total_batches}"
                     )
 
-                    self.index.upsert(vectors=batch)
+                self.index.upsert(vectors=batch)
 
+                if progress:
                     progress.console.log(
                         f"[blue]Upserted:[/blue] Batch {batch_num}/{total_batches} "
                         f"({len(batch)} vectors)"
@@ -110,6 +123,10 @@ class PineconeVectorStore(VectorStore[T]):
             from ragnadoc.main import console
             console.print(Traceback())
             raise
+
+        finally:
+            if progress:
+                progress.stop()
 
     def search(
         self,
