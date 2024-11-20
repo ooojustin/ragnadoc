@@ -1,8 +1,10 @@
+--only-binary=numpy
+numpy
 click
 pyyaml
 rich
 pygithub
-langchain
-langchain-community
-pinecone
+pinecone[grpc]
 tiktoken
+openai
+langchain

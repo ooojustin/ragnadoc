@@ -10,14 +10,15 @@ authors = [
     { name = "Justin Garofolo", email = "justin@garofolo.net" }
 ]
 dependencies = [
+    "numpy",
     "click",
     "pyyaml",
     "rich",
     "pygithub",
-    "langchain",
-    "langchain-community",
-    "pinecone",
-    "tiktoken"
+    "pinecone[grpc]",
+    "tiktoken",
+    "openai",
+    "langchain"
 ]
 dynamic = ["classifiers"]
 
@@ -26,3 +27,6 @@ ragnadoc = "ragnadoc.main:cli"
 
 [tool.hatch.metadata]
 include = ["ragnadoc/**/*"]
+
+[tool.hatch.envs.default.scripts]
+pre-install = "pip config set global.only-binary numpy"
