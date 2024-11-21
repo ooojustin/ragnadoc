@@ -1,10 +1,11 @@
-from typing import Dict, Optional, Generic, TypeVar
+from typing import Dict, Optional, Generic, Union, TypeVar, Iterator
 from openai import OpenAI
 from openai.types.beta import Thread, Assistant
-from openai.types.beta.threads import TextContentBlock
+from openai.types.beta.threads import TextContentBlock, TextDeltaBlock
+from openai.types.beta.assistant_stream_event import ThreadMessageDelta
 from ragnadoc.content import Content
 from ragnadoc.vectors import VectorStore
-from ragnadoc.query.models import QueryResult, ChatQueryResult
+from ragnadoc.query.models import QueryResult, ChatQueryResult, StreamChatQueryResult
 import time
 import logging
 
@@ -104,10 +105,11 @@ class QueryEngine(Generic[T]):
         question: str,
         filter_dict: Optional[Dict] = None,
         top_k: int = 4,
-        min_relevance_score: float = 0.5
-    ) -> ChatQueryResult[T]:
+        min_relevance_score: float = 0.5,
+        stream: bool = False
+    ) -> Union[ChatQueryResult[T], StreamChatQueryResult[T]]:
+        """Query method for QueryEngine class."""
         try:
-            # Search for relevant documents
             result = self.search(
                 query=question,
                 filter_dict=filter_dict,
@@ -140,6 +142,27 @@ class QueryEngine(Generic[T]):
                 content=formatted_query
             )
 
+            if stream:
+                def stream_generator() -> Iterator[str]:
+                    stream = self.client.beta.threads.runs.create(
+                        thread_id=self.thread.id,
+                        assistant_id=self.assistant.id,
+                        stream=True
+                    )
+                    for i in stream:
+                        if isinstance(i, ThreadMessageDelta):
+                            content = i.data.delta.content
+                            assert content
+                            block = content[0]
+                            if isinstance(block, TextDeltaBlock):
+                                if block.text:
+                                    yield str(block.text.value)
+                return StreamChatQueryResult.create_streaming(
+                    stream_generator=stream_generator,
+                    query_result=result,
+                    raw_response=None
+                )
+
             self.client.beta.threads.runs.create_and_poll(
                 thread_id=self.thread.id,
                 assistant_id=self.assistant.id,
@@ -151,18 +174,18 @@ class QueryEngine(Generic[T]):
                 limit=1
             )
 
-            response = messages.data[0]
-            content = response.content[0]
-
-            if isinstance(content, TextContentBlock):
+            try:
+                response = messages.data[0]
+                content = response.content[0]
+                assert isinstance(content, TextContentBlock)
                 answer = content.text.value
-            else:
+            except (AssertionError, AttributeError, IndexError):
                 answer = "Unable to interpret response as text."
 
             return ChatQueryResult.create(
                 answer=answer,
                 query_result=result,
-                raw_response=response
+                raw_response=messages.data[0]
             )
 
         except Exception as e:

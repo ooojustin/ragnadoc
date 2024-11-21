@@ -1,6 +1,9 @@
-from typing import Optional, Any, Dict, Sequence, TypeVar, Generic, List
+from typing import Optional, Any, Dict, Sequence, TypeVar, Generic, List, Iterator, Callable
+from openai._utils import is_iterable
 from pydantic import BaseModel, Field, ConfigDict
 from ragnadoc.content import Content, GitContent
+from typing import Optional, Any, Dict, List, Iterator, TypeVar, Generic
+from pydantic import BaseModel, Field, ConfigDict
 
 T = TypeVar("T", bound=Content)
 
@@ -76,9 +79,69 @@ class ChatQueryResult(BaseQueryResult, Generic[T]):
         answer: str,
         query_result: QueryResult[T],
         raw_response: Any = None
-    ) -> 'ChatQueryResult[T]':
+    ) -> "ChatQueryResult[T]":
         return cls(
             answer=answer,
             query_result=query_result,
             raw_response=raw_response
         )
+
+
+class StreamChatQueryResult(ChatQueryResult[T]):
+    """A streaming version of ChatQueryResult that is model-agnostic."""
+    answer_stream: Iterator[str] = Field(default_factory=lambda: iter(()))
+    stream_generator: Optional[Callable[[], Iterator[str]]] = Field(
+        default=None, exclude=True)
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
+    @classmethod
+    def create_streaming(
+        cls,
+        stream_generator: Callable[[], Iterator[str]],
+        query_result: QueryResult[T],
+        raw_response: Any = None
+    ) -> "StreamChatQueryResult[T]":
+        instance = cls(
+            answer="",
+            query_result=query_result,
+            raw_response=raw_response,
+            stream_generator=stream_generator
+        )
+        instance.answer_stream = instance._create_stream()
+        return instance
+
+    @classmethod
+    def create(
+        cls,
+        answer: str,
+        query_result: QueryResult[T],
+        raw_response: Any = None
+    ) -> "StreamChatQueryResult[T]":
+        """Create a non-streaming result."""
+        return cls(
+            answer=answer,
+            query_result=query_result,
+            raw_response=raw_response,
+            answer_stream=iter(())
+        )
+
+    def _create_stream(self) -> Iterator[str]:
+        """Creates and manages the streaming iterator."""
+        if not self.stream_generator:
+            return iter(())
+
+        full_message = ""
+        for chunk in self.stream_generator():
+            full_message += chunk
+            yield chunk
+
+        # Update the complete answer once streaming is done
+        self.answer = full_message
+
+    @property
+    def sources(self) -> List[T]:
+        return super().sources
+
+    @property
+    def source_scores(self) -> Dict[str, float]:
+        return super().source_scores
