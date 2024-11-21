@@ -1,7 +1,9 @@
 from typing import Optional
 from rich.console import Console
+from rich.live import Live
 from ragnadoc.gh import GitHubClient
 from ragnadoc.query.engine import QueryEngine
+from ragnadoc.query.models import StreamChatQueryResult
 from ragnadoc.content import ChunkingProcessor, GitContent
 from ragnadoc.content.factory import create_chunking_strategy
 from ragnadoc.embeddings.factory import create_embedding_provider
@@ -93,7 +95,8 @@ def index(config: str):
 @click.option("--repo", help="Filter by repository")
 @click.option("--top-k", default=5, help="Number of results to return")
 @click.option("--min-score", default=0.7, help="Minimum relevance score")
-def query(config: str, repo: Optional[str], top_k: int, min_score: float):
+@click.option("--stream", "-s", is_flag=True, default=False, help="Stream the response")
+def query(config: str, repo: Optional[str], top_k: int, min_score: float, stream: bool):
     """Query the documentation in interactive mode."""
     try:
         cfg = load_config(config)
@@ -130,25 +133,46 @@ def query(config: str, repo: Optional[str], top_k: int, min_score: float):
 
             filter_dict = {"repo": repo} if repo else None
 
-            with console.status("[bold yellow]Generating answer..."):
-                result = engine.query(
-                    question=question,
-                    filter_dict=filter_dict,
-                    top_k=top_k,
-                    min_relevance_score=min_score
-                )
+            if stream:
+                with console.status("[bold yellow]Searching documentation..."):
+                    result = engine.query(
+                        question=question,
+                        filter_dict=filter_dict,
+                        top_k=top_k,
+                        min_relevance_score=min_score,
+                        stream=True
+                    )
 
-            console.print("\n[bold]Answer:[/bold]")
-            console.print(result.answer)
+                prefix = "[bold yellow]Generating answer...[/bold yellow]\n\n[bold]Answer:[/bold]"
+                out = []
+
+                assert isinstance(result, StreamChatQueryResult)
+                with Live(prefix, console=console, refresh_per_second=4) as live:
+                    for chunk in result.answer_stream:
+                        out.append(chunk)
+                        combined_output = f"{prefix}\n" + "".join(out)
+                        live.update(combined_output)
+                    live.update("\n[bold]Answer:[/bold]\n" +
+                                "".join(out))
+            else:
+                with console.status("[bold yellow]Generating answer...[/bold yellow]"):
+                    result = engine.query(
+                        question=question,
+                        filter_dict=filter_dict,
+                        top_k=top_k,
+                        min_relevance_score=min_score,
+                        stream=False
+                    )
+                console.print("\n[bold]Answer:[/bold]")
+                console.print(result.answer)
 
             console.print("\n[bold]Sources:[/bold]")
             for doc, score in zip(result.query_result.documents, result.query_result.scores):
-                commit_msg = doc.metadata.get(
-                    "commit_message", "").split("\n")[0]
+                # commit_msg = doc.metadata.get(
+                #     "commit_message", "").split("\n")[0]
                 console.print(
                     f"- {doc.id} "
                     f"[dim](repo: {doc.repo}, score: {score:.4f})"
-                    f"{f', commit: {commit_msg}' if commit_msg else ''}[/dim]"
                 )
 
     except Exception as e:
