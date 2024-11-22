@@ -21,6 +21,22 @@ def load_config(config_path: str) -> RagnadocConfig:
     return RagnadocConfig.from_yaml(config_path)
 
 
+def init_query_engine(cfg: RagnadocConfig) -> QueryEngine:
+    assert cfg.openai_api_key  # required until other LLMs are supported
+    embedding_provider = create_embedding_provider(cfg)
+    vs = create_vector_store(
+        config=cfg,
+        embedding_provider=embedding_provider,
+        document_class=GitContent
+    )
+    engine = QueryEngine[GitContent](
+        vector_store=vs,
+        openai_api_key=cfg.openai_api_key,
+        model="gpt-4o"
+    )
+    return engine
+
+
 @click.group()
 def cli():
     initialize_logging()
@@ -100,26 +116,7 @@ def query(config: str, repo: Optional[str], top_k: int, min_score: float, stream
     """Query the documentation in interactive mode."""
     try:
         cfg = load_config(config)
-
-        # Setup embedding provider using factory
-        embedding_provider = create_embedding_provider(cfg)
-
-        assert cfg.pinecone_api_key
-        assert cfg.openai_api_key
-
-        # setup vector store
-        vs = create_vector_store(
-            config=cfg,
-            embedding_provider=embedding_provider,
-            document_class=GitContent
-        )
-
-        # setup query engine
-        engine = QueryEngine[GitContent](
-            vector_store=vs,
-            openai_api_key=cfg.openai_api_key,
-            model="gpt-4o"
-        )
+        engine = init_query_engine(cfg)
 
         console.print("[bold blue]Interactive Query Mode[/bold blue]")
         console.print("Enter your questions below (type 'quit' to exit)")
@@ -174,6 +171,30 @@ def query(config: str, repo: Optional[str], top_k: int, min_score: float, stream
                     f"- {doc.id} "
                     f"[dim](repo: {doc.repo}, score: {score:.4f})"
                 )
+
+    except Exception as e:
+        console.print(f"[bold red]Error:[/bold red] {str(e)}")
+        raise click.Abort()
+
+
+@cli.command()
+@click.option("--config", required=True, help="Path to configuration file")
+@click.option("--host", default="0.0.0.0", help="Host to bind the server to")
+@click.option("--port", default=8000, help="Port to run the server on")
+def api(config: str, host: str, port: int):
+    """Run the documentation API server."""
+    try:
+        cfg = load_config(config)
+
+        console.print(
+            "[bold yellow]Initializing query engine...[/bold yellow]")
+        query_engine = init_query_engine(cfg)
+
+        from ragnadoc.api import RagnadocAPI
+        console.print(
+            f"[bold blue]Starting API server on {host}:{port}[/bold blue]")
+        api_server = RagnadocAPI(query_engine)
+        api_server.run(host=host, port=port)
 
     except Exception as e:
         console.print(f"[bold red]Error:[/bold red] {str(e)}")
