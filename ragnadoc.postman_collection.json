@@ -1,0 +1,86 @@
+{
+	"info": {
+		"_postman_id": "95e4a6fc-dbf4-4ada-9560-e4b5dfde19d8",
+		"name": "ragnadoc",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+		"_exporter_id": "2773103"
+	},
+	"item": [
+		{
+			"name": "Health Check",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{HOST}}:{{PORT}}",
+					"host": [
+						"{{HOST}}"
+					],
+					"port": "{{PORT}}"
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Query",
+			"request": {
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "{\r\n  \"question\": \"What is the chunking strategy?\",\r\n  \"top_k\": 5,\r\n  \"min_score\": 0.7\r\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "{{HOST}}:{{PORT}}/query",
+					"host": [
+						"{{HOST}}"
+					],
+					"port": "{{PORT}}",
+					"path": [
+						"query"
+					]
+				}
+			},
+			"response": []
+		}
+	],
+	"event": [
+		{
+			"listen": "prerequest",
+			"script": {
+				"type": "text/javascript",
+				"packages": {},
+				"exec": [
+					""
+				]
+			}
+		},
+		{
+			"listen": "test",
+			"script": {
+				"type": "text/javascript",
+				"packages": {},
+				"exec": [
+					""
+				]
+			}
+		}
+	],
+	"variable": [
+		{
+			"key": "PORT",
+			"value": "8000",
+			"type": "string"
+		},
+		{
+			"key": "HOST",
+			"value": "http://127.0.0.1",
+			"type": "string"
+		}
+	]
+}
