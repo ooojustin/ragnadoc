@@ -18,7 +18,9 @@ dependencies = [
     "pinecone[grpc]",
     "tiktoken",
     "openai",
-    "langchain"
+    "langchain",
+    "fastapi",
+    "uvicorn"
 ]
 dynamic = ["classifiers"]
 

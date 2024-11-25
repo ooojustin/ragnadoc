@@ -8,3 +8,5 @@ pinecone[grpc]
 tiktoken
 openai
 langchain
+fastapi
+uvicorn

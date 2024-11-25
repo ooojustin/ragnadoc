@@ -46,8 +46,7 @@ class RagnadocAPI:
                     question=request.question,
                     filter_dict=filter_dict,
                     top_k=request.top_k or 5,
-                    min_relevance_score=request.min_score or 0.7,
-                    stream=request.stream or False
+                    min_relevance_score=request.min_score or 0.7
                 )
 
                 sources = [
