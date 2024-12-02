@@ -11,14 +11,15 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+
 class RagnadocCore:
     """Core functionality of Ragnadoc, independent of CLI/API interfaces."""
-    
+
     def __init__(self, config: RagnadocConfig, console: Optional[Console] = None):
         self.config = config
         self.console = console or Console()
         self.query_engine = self._init_query_engine()
-        
+
     def _init_query_engine(self) -> QueryEngine:
         """Initialize the query engine with configured providers."""
         assert self.config.openai_api_key  # required until other LLMs are supported
@@ -40,7 +41,7 @@ class RagnadocCore:
         # setup content processing
         chunking_strategy = create_chunking_strategy(self.config)
         content_processor = ChunkingProcessor[GitContent](chunking_strategy)
-        
+
         # setup GitHub client and fetch docs
         github_client = GitHubClient(self.config.github_token)
         documents = github_client.fetch_docs(self.config.repos)
@@ -53,16 +54,20 @@ class RagnadocCore:
                 chunks = content_processor.process(doc)
                 if chunks:
                     self.console.print(
-                        f"[blue]Processing:[/blue] {doc.source} ({len(chunks)} chunks)"
+                        f"[blue]Processing:[/blue] {
+                            doc.source} ({len(chunks)} chunks)"
                     )
                     self.query_engine.vector_store.update(chunks)
                 else:
                     self.console.print(
-                        f"[yellow]Skipping:[/yellow] {doc.source} (no chunks created)"
+                        f"[yellow]Skipping:[/yellow] {
+                            doc.source} (no chunks created)"
                     )
             except Exception as e:
-                logger.error(f"Error processing document {doc.source}: {str(e)}")
-                self.console.print(f"[red]Error:[/red] Failed to process {doc.source}")
+                logger.error(f"Error processing document {
+                             doc.source}: {str(e)}")
+                self.console.print(
+                    f"[red]Error:[/red] Failed to process {doc.source}")
                 continue
 
     def query(

@@ -11,6 +11,7 @@ class QueryRequest(BaseModel):
     repo: Optional[str] = None
     top_k: Optional[int] = 5
     min_score: Optional[float] = 0.7
+    stream: Optional[bool] = False
 
 
 class SourceInfo(BaseModel):
@@ -46,7 +47,8 @@ class RagnadocAPI:
                     question=request.question,
                     filter_dict=filter_dict,
                     top_k=request.top_k or 5,
-                    min_relevance_score=request.min_score or 0.7
+                    min_relevance_score=request.min_score or 0.7,
+                    stream=request.stream or False
                 )
 
                 sources = [
