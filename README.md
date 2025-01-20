@@ -127,3 +127,31 @@ print(result.answer)
 for doc, score in zip(result.query_result.documents, result.query_result.scores):
    print(f"Source: {doc.id} (score: {score:.4f})")
 ```
+
+## Architecture
+
+Ragnadoc consists of several key components:
+
+- **Content Processing**: Handles document chunking with support for different strategies
+- **Embedding**: Manages document and query embedding using various providers
+- **Vector Store**: Handles vector storage and similarity search
+- **Query Engine**: Coordinates retrieval and generation for answering queries
+
+### Content Processing
+
+The library supports multiple chunking strategies:
+- `FixedSizeChunking`: Splits documents into chunks of fixed size
+- `HeaderBasedChunking`: Splits documents based on header sections
+
+### Embedding Support
+
+Currently supported embedding providers:
+- OpenAI (`text-embedding-ada-002`)
+- Pinecone (`multilingual-e5-large`)
+
+### Vector Search
+
+Uses Pinecone for efficient vector similarity search with support for:
+- Metadata filtering
+- Relevance scoring
+- Batch operations
