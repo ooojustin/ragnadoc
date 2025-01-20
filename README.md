@@ -65,3 +65,65 @@ ragnadoc index --config config.yaml
 ```bash
 ragnadoc query --config config.yaml
 ```
+
+## Usage
+
+### As a CLI Tool
+
+```bash
+# Index documentation
+ragnadoc index --config config.yaml
+
+# Interactive query mode
+ragnadoc query --config config.yaml
+
+# Query with specific repository filter
+ragnadoc query --config config.yaml --repo "owner/repo"
+
+# Stream responses
+ragnadoc query --config config.yaml --stream
+```
+
+### As an API Server
+
+```bash
+# Start the API server
+ragnadoc api --config config.yaml --port 8000
+```
+
+The API server provides endpoints for querying documentation:
+
+```bash
+curl -X POST http://localhost:8000/query \
+ -H "Content-Type: application/json" \
+ -d '{"question": "How do I use the chunking feature?", "repo": "owner/repo"}'
+```
+
+### As a Python Library
+
+```python
+from ragnadoc.config import RagnadocConfig
+from ragnadoc.core import RagnadocCore
+
+# Load configuration
+config = RagnadocConfig.from_yaml("config.yaml")
+
+# Initialize core
+core = RagnadocCore(config)
+
+# Index repositories
+core.index_repositories()
+
+# Query documentation
+result = core.query(
+   question="How do I use the chunking feature?",
+   repo="owner/repo",
+   top_k=5,
+   min_score=0.7,
+   stream=False
+)
+
+print(result.answer)
+for doc, score in zip(result.query_result.documents, result.query_result.scores):
+   print(f"Source: {doc.id} (score: {score:.4f})")
+```
