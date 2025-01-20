@@ -155,3 +155,7 @@ Uses Pinecone for efficient vector similarity search with support for:
 - Metadata filtering
 - Relevance scoring
 - Batch operations
+
+## License
+
+Licensed under the MIT License. See the [LICENSE](https://github.com/ooojustin/ragnadoc/blob/main/LICENSE) file for details.
